@@ -14,5 +14,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  socialProviders: {
+    github: {
+      clientId: requireEnv("GITHUB_CLIENT_ID"),
+      clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
+      scope: ["read:user", "read:org"],
+    },
+  },
   plugins: [nextCookies()],
 });
