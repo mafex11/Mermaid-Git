@@ -79,6 +79,19 @@ export const MermaidRenderer = ({ chart, className }: MermaidRendererProps) => {
     instance.smoothZoom(centerX, centerY, factor);
   };
 
+  const resetView = () => {
+    const instance = panzoomRef.current;
+    const viewport = viewportRef.current;
+    if (!instance || !viewport) {
+      return;
+    }
+    const rect = viewport.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    instance.smoothMoveTo(0, 0);
+    instance.smoothZoomAbs(centerX, centerY, 1);
+  };
+
   return (
     <div className="space-y-3">
       {error ? (
@@ -112,7 +125,7 @@ export const MermaidRenderer = ({ chart, className }: MermaidRendererProps) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => panzoomRef.current?.reset()}
+            onClick={resetView}
           >
             Reset
           </Button>
