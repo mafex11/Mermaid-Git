@@ -142,6 +142,7 @@ export const listRepoDiagramSummaries = async (
           diagramEdgeCount: 1,
           diagramTruncated: 1,
           buildStatus: 1,
+          buildError: 1,
           buildUpdatedAt: 1,
         },
       },
@@ -209,6 +210,23 @@ export const getLatestAnalysisRun = async (
     .limit(1)
     .toArray();
   return result[0] ?? null;
+};
+
+export const listLatestAnalysisRuns = async (
+  repoIds: number[],
+): Promise<AnalysisRun[]> => {
+  if (repoIds.length === 0) {
+    return [];
+  }
+  const { runs } = getGraphCollections();
+  return runs
+    .aggregate<AnalysisRun>([
+      { $match: { repoId: { $in: repoIds } } },
+      { $sort: { updatedAt: -1 } },
+      { $group: { _id: "$repoId", run: { $first: "$$ROOT" } } },
+      { $replaceRoot: { newRoot: "$run" } },
+    ])
+    .toArray();
 };
 
 type GraphNodeInput = Omit<GraphNode, "createdAt" | "updatedAt">;

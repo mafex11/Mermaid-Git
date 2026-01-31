@@ -9,6 +9,7 @@ import {
   getRepoBuildStatus,
   getRepoDiagram,
   listRepoDiagramSummaries,
+  listLatestAnalysisRuns,
   setRepoBuildStatus,
 } from "@/lib/graph/store";
 
@@ -24,6 +25,14 @@ export type DiagramSummary = {
   diagramNodeCount?: number;
   diagramEdgeCount?: number;
   diagramTruncated?: boolean;
+  buildStatus?: DiagramBuildStatus;
+  buildUpdatedAt?: string;
+  buildError?: string;
+  progress?: {
+    processedFiles: number;
+    totalFiles: number;
+    percent: number;
+  };
 };
 
 export type DiagramSummariesResponse =
@@ -136,14 +145,37 @@ export const listDiagramSummaries = async (): Promise<DiagramSummariesResponse> 
   }
 
   const repoIds = reposResult.repos.map((repo) => repo.id);
-  const summaries = await listRepoDiagramSummaries(repoIds);
-  const normalized = summaries.map((summary) => ({
-    repoId: summary.repoId,
-    diagramUpdatedAt: summary.diagramUpdatedAt?.toISOString(),
-    diagramNodeCount: summary.diagramNodeCount,
-    diagramEdgeCount: summary.diagramEdgeCount,
-    diagramTruncated: summary.diagramTruncated,
-  }));
+  const [summaries, latestRuns] = await Promise.all([
+    listRepoDiagramSummaries(repoIds),
+    listLatestAnalysisRuns(repoIds),
+  ]);
+  const runsByRepoId = new Map(latestRuns.map((run) => [run.repoId, run]));
+  const normalized = summaries.map((summary) => {
+    const run = runsByRepoId.get(summary.repoId);
+    const totalFiles = run?.totalFiles ?? 0;
+    const processedFiles = run?.processedFiles ?? 0;
+    const progress =
+      totalFiles > 0
+        ? {
+            processedFiles,
+            totalFiles,
+            percent: Math.min(100, Math.round((processedFiles / totalFiles) * 100)),
+          }
+        : undefined;
+    const buildStatus = summary.buildStatus ?? run?.status ?? "idle";
+    return {
+      repoId: summary.repoId,
+      diagramUpdatedAt: summary.diagramUpdatedAt?.toISOString(),
+      diagramNodeCount: summary.diagramNodeCount,
+      diagramEdgeCount: summary.diagramEdgeCount,
+      diagramTruncated: summary.diagramTruncated,
+      buildStatus,
+      buildUpdatedAt:
+        summary.buildUpdatedAt?.toISOString() ?? run?.updatedAt?.toISOString(),
+      buildError: summary.buildError ?? run?.error,
+      progress,
+    };
+  });
 
   return { ok: true, summaries: normalized };
 };

@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { type DiagramSummary } from "@/app/actions/diagram";
 import { useDiagramBuild, useDiagramSummaries } from "@/hooks/useDiagram";
 import { useRepos } from "@/hooks/useRepos";
@@ -152,7 +153,11 @@ export const ReposView = ({
 
       {data?.ok && data.repos.length > 0 ? (
         <div className="grid gap-4">
-          {data.repos.map((repo) => (
+          {data.repos.map((repo) => {
+            const summary = diagramSummaries?.ok
+              ? summariesByRepoId.get(repo.id)
+              : undefined;
+            return (
             <Card key={repo.id}>
               <CardHeader>
                 <CardTitle>{repo.fullName}</CardTitle>
@@ -162,38 +167,58 @@ export const ReposView = ({
                 </CardDescription>
                 {diagramSummaries?.ok ? (
                   <CardDescription>
-                    {(() => {
-                      const summary = summariesByRepoId.get(repo.id);
-                      if (!summary?.diagramUpdatedAt) {
-                        return "Diagram not built yet.";
-                      }
-                      const formatted = new Date(summary.diagramUpdatedAt).toLocaleString();
-                      return `Diagram updated ${formatted}`;
-                    })()}
+                    {summary?.diagramUpdatedAt
+                      ? `Diagram updated ${new Date(summary.diagramUpdatedAt).toLocaleString()}`
+                      : "Diagram not built yet."}
+                  </CardDescription>
+                ) : null}
+                {diagramSummaries?.ok ? (
+                  <CardDescription>
+                    Build status: {summary?.buildStatus ?? "idle"}
                   </CardDescription>
                 ) : null}
               </CardHeader>
-              <CardContent className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => handleBuild(repo.id)}
-                  disabled={isBuilding}
-                >
-                  {isBuilding && activeBuildRepoId === repo.id
-                    ? "Building..."
-                    : "Build diagram"}
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href={`/repos/${repo.id}/diagram`}>Open diagram</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">
-                    View on GitHub
-                  </Link>
-                </Button>
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex w-full flex-col gap-2">
+                  {summary?.progress ? (
+                    <div className="space-y-2">
+                      <Progress value={summary.progress.percent} />
+                      <span className="text-xs text-muted-foreground">
+                        Progress {summary.progress.percent}% (
+                        {summary.progress.processedFiles}/{summary.progress.totalFiles} files)
+                      </span>
+                    </div>
+                  ) : null}
+                  {summary?.buildStatus === "failed" && summary.buildError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Build failed</AlertTitle>
+                      <AlertDescription>{summary.buildError}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleBuild(repo.id)}
+                    disabled={isBuilding}
+                  >
+                    {isBuilding && activeBuildRepoId === repo.id
+                      ? "Building..."
+                      : "Build diagram"}
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={`/repos/${repo.id}/diagram`}>Open diagram</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">
+                      View on GitHub
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          ))}
+          );
+        })}
         </div>
       ) : null}
     </div>

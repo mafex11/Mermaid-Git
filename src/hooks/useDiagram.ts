@@ -27,6 +27,14 @@ const fetchBuildStatus = async (repoId: number): Promise<BuildStatusResponse> =>
 export const useDiagramSummaries = () =>
   useSWR<DiagramSummariesResponse>("diagram-summaries", fetchDiagramSummaries, {
     revalidateOnFocus: false,
+    refreshInterval: (latest) =>
+      latest &&
+      latest.ok &&
+      latest.summaries.some(
+        (summary) => summary.buildStatus === "queued" || summary.buildStatus === "running",
+      )
+        ? 3000
+        : 0,
   });
 
 export const useDiagram = (repoId: number | null) =>

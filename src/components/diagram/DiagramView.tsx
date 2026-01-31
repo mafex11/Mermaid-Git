@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useDiagram, useDiagramBuild, useDiagramBuildStatus } from "@/hooks/useDiagram";
 
 import { MermaidRenderer } from "./MermaidRenderer";
@@ -72,10 +73,13 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
           </CardDescription>
         ) : null}
         {buildStatus.progress ? (
-          <CardDescription>
-            Progress {buildStatus.progress.percent}% ({buildStatus.progress.processedFiles}/
-            {buildStatus.progress.totalFiles} files)
-          </CardDescription>
+          <div className="space-y-2">
+            <Progress value={buildStatus.progress.percent} />
+            <CardDescription>
+              Progress {buildStatus.progress.percent}% (
+              {buildStatus.progress.processedFiles}/{buildStatus.progress.totalFiles} files)
+            </CardDescription>
+          </div>
         ) : null}
       </CardHeader>
       {buildStatus.error ? (
