@@ -162,7 +162,8 @@ export const listDiagramSummaries = async (): Promise<DiagramSummariesResponse> 
             percent: Math.min(100, Math.round((processedFiles / totalFiles) * 100)),
           }
         : undefined;
-    const buildStatus = summary.buildStatus ?? run?.status ?? "idle";
+    const buildStatus: DiagramBuildStatus =
+      summary.buildStatus ?? run?.status ?? "idle";
     return {
       repoId: summary.repoId,
       diagramUpdatedAt: summary.diagramUpdatedAt?.toISOString(),
