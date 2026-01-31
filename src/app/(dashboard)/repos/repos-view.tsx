@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { type DiagramSummary } from "@/app/actions/diagram";
+import { useDiagramBuild, useDiagramSummaries } from "@/hooks/useDiagram";
 import { useRepos } from "@/hooks/useRepos";
 import { authClient } from "@/lib/auth/client";
 
@@ -21,8 +23,22 @@ export const ReposView = ({
   appInstallUrl,
 }: ReposViewProps) => {
   const { data, isLoading } = useRepos();
+  const { data: diagramSummaries } = useDiagramSummaries();
+  const { trigger: triggerBuild, isMutating: isBuilding } = useDiagramBuild();
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isSigningOut, startTransition] = useTransition();
+  const [buildError, setBuildError] = useState<string | null>(null);
+  const [buildNotice, setBuildNotice] = useState<string | null>(null);
+  const [activeBuildRepoId, setActiveBuildRepoId] = useState<number | null>(null);
+
+  const summariesByRepoId = useMemo(() => {
+    if (!diagramSummaries?.ok) {
+      return new Map<number, DiagramSummary>();
+    }
+    return new Map(
+      diagramSummaries.summaries.map((summary) => [summary.repoId, summary]),
+    );
+  }, [diagramSummaries]);
 
   const handleSignOut = () => {
     setSignOutError(null);
@@ -33,6 +49,24 @@ export const ReposView = ({
         setSignOutError("Sign out failed. Try again.");
       }
     });
+  };
+
+  const handleBuild = async (repoId: number) => {
+    setBuildError(null);
+    setBuildNotice(null);
+    setActiveBuildRepoId(repoId);
+    try {
+      const result = await triggerBuild(repoId);
+      if (!result?.ok) {
+        setBuildError(result?.error ?? "Build failed. Try again.");
+        return;
+      }
+      setBuildNotice("Diagram build queued.");
+    } catch {
+      setBuildError("Build failed. Try again.");
+    } finally {
+      setActiveBuildRepoId(null);
+    }
   };
 
   return (
@@ -71,6 +105,27 @@ export const ReposView = ({
         </Alert>
       ) : null}
 
+      {buildError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Diagram build failed</AlertTitle>
+          <AlertDescription>{buildError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {buildNotice ? (
+        <Alert>
+          <AlertTitle>Diagram build queued</AlertTitle>
+          <AlertDescription>{buildNotice}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {diagramSummaries && !diagramSummaries.ok ? (
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load diagram status</AlertTitle>
+          <AlertDescription>{diagramSummaries.error}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {isLoading ? (
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
@@ -105,8 +160,32 @@ export const ReposView = ({
                   {repo.private ? "Private" : "Public"} | Default{" "}
                   {repo.defaultBranch}
                 </CardDescription>
+                {diagramSummaries?.ok ? (
+                  <CardDescription>
+                    {(() => {
+                      const summary = summariesByRepoId.get(repo.id);
+                      if (!summary?.diagramUpdatedAt) {
+                        return "Diagram not built yet.";
+                      }
+                      const formatted = new Date(summary.diagramUpdatedAt).toLocaleString();
+                      return `Diagram updated ${formatted}`;
+                    })()}
+                  </CardDescription>
+                ) : null}
               </CardHeader>
-              <CardContent className="flex justify-end">
+              <CardContent className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => handleBuild(repo.id)}
+                  disabled={isBuilding}
+                >
+                  {isBuilding && activeBuildRepoId === repo.id
+                    ? "Building..."
+                    : "Build diagram"}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={`/repos/${repo.id}/diagram`}>Open diagram</Link>
+                </Button>
                 <Button asChild variant="outline">
                   <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">
                     View on GitHub

@@ -64,6 +64,7 @@ export const POST = async (request: Request): Promise<Response> => {
         fullName: data.repository.full_name,
         defaultBranch: data.repository.default_branch,
       },
+      mode: "diff",
       ref: data.ref,
       before: data.before,
       after: data.after,

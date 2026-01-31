@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-
+        
 import {
   listGitHubInstallations,
   type InstallationsResponse,

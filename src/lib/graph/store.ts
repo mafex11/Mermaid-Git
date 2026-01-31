@@ -59,6 +59,87 @@ export const upsertRepo = async (repo: RepoRecordInput): Promise<void> => {
   );
 };
 
+type RepoDiagramUpdate = {
+  repoId: number;
+  diagramMermaid: string;
+  diagramNodeCount: number;
+  diagramEdgeCount: number;
+  diagramTruncated: boolean;
+};
+
+export const upsertRepoDiagram = async (
+  update: RepoDiagramUpdate,
+): Promise<void> => {
+  const { repos } = getGraphCollections();
+  const now = new Date();
+  await repos.updateOne(
+    { repoId: update.repoId },
+    {
+      $set: {
+        diagramMermaid: update.diagramMermaid,
+        diagramUpdatedAt: now,
+        diagramNodeCount: update.diagramNodeCount,
+        diagramEdgeCount: update.diagramEdgeCount,
+        diagramTruncated: update.diagramTruncated,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  );
+};
+
+type RepoDiagramRecord = {
+  repoId: number;
+  diagramMermaid?: string;
+  diagramUpdatedAt?: Date;
+  diagramNodeCount?: number;
+  diagramEdgeCount?: number;
+  diagramTruncated?: boolean;
+};
+
+export const getRepoDiagram = async (
+  repoId: number,
+): Promise<RepoDiagramRecord | null> => {
+  const { repos } = getGraphCollections();
+  return repos.findOne(
+    { repoId },
+    {
+      projection: {
+        repoId: 1,
+        diagramMermaid: 1,
+        diagramUpdatedAt: 1,
+        diagramNodeCount: 1,
+        diagramEdgeCount: 1,
+        diagramTruncated: 1,
+      },
+    },
+  );
+};
+
+export const listRepoDiagramSummaries = async (
+  repoIds: number[],
+): Promise<RepoDiagramRecord[]> => {
+  if (repoIds.length === 0) {
+    return [];
+  }
+  const { repos } = getGraphCollections();
+  return repos
+    .find(
+      { repoId: { $in: repoIds } },
+      {
+        projection: {
+          repoId: 1,
+          diagramUpdatedAt: 1,
+          diagramNodeCount: 1,
+          diagramEdgeCount: 1,
+          diagramTruncated: 1,
+        },
+      },
+    )
+    .toArray();
+};
+
 type GraphNodeInput = Omit<GraphNode, "createdAt" | "updatedAt">;
 type GraphEdgeInput = Omit<GraphEdge, "createdAt">;
 type AnalysisRunInput = Omit<AnalysisRun, "createdAt" | "updatedAt">;

@@ -5,6 +5,11 @@ export type RepoRecord = {
   fullName: string;
   owner: string;
   defaultBranch: string;
+  diagramMermaid?: string;
+  diagramUpdatedAt?: Date;
+  diagramNodeCount?: number;
+  diagramEdgeCount?: number;
+  diagramTruncated?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
