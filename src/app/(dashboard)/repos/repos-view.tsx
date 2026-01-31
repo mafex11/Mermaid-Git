@@ -207,7 +207,7 @@ export const ReposView = ({
                       : "Build diagram"}
                   </Button>
                   <Button asChild variant="outline">
-                    <Link href={`/repos/${repo.id}/diagram`}>Open diagram</Link>
+                    <Link href={`/diagram/${repo.id}`}>Open diagram</Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">

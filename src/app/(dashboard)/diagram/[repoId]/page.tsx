@@ -21,5 +21,11 @@ export default async function DiagramPage({ params }: DiagramPageProps) {
     redirect("/repos");
   }
 
-  redirect(`/diagram/${repoId}`);
+  return (
+    <main className="flex min-h-screen justify-center bg-background px-6 py-16 text-foreground">
+      <div className="w-full max-w-5xl">
+        <DiagramView repoId={repoId} />
+      </div>
+    </main>
+  );
 }
