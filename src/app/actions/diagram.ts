@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { inngest } from "@/inngest/client";
 import { getRepoDiagram, listRepoDiagramSummaries } from "@/lib/graph/store";
 
-import { listInstalledRepos } from "./repos";
+import { type RepoSummary, listInstalledRepos } from "./repos";
 
 export type DiagramBuildResponse =
   | { ok: true; queued: true }
@@ -46,7 +46,9 @@ const requireSession = async () => {
   return session;
 };
 
-const ensureRepoAccess = async (repoId: number) => {
+const ensureRepoAccess = async (
+  repoId: number,
+): Promise<{ ok: true; repo: RepoSummary } | { ok: false; error: string }> => {
   const reposResult = await listInstalledRepos();
   if (!reposResult.ok) {
     return { ok: false, error: reposResult.error };
@@ -66,7 +68,7 @@ export const startDiagramBuild = async (repoId: number): Promise<DiagramBuildRes
 
   const repoResult = await ensureRepoAccess(repoId);
   if (!repoResult.ok) {
-    return repoResult;
+    return { ok: false, error: repoResult.error };
   }
 
   await inngest.send({
