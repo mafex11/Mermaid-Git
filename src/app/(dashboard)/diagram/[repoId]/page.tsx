@@ -36,7 +36,8 @@ export default async function DiagramPage({ params }: DiagramPageProps) {
     );
   }
 
-  const repoId = Number(params.repoId);
+  const rawRepoId = params.repoId?.trim() ?? "";
+  const repoId = Number.parseInt(rawRepoId, 10);
   if (!Number.isFinite(repoId)) {
     return (
       <main className="flex min-h-screen justify-center bg-background px-6 py-16 text-foreground">
@@ -45,7 +46,7 @@ export default async function DiagramPage({ params }: DiagramPageProps) {
             <CardHeader>
               <CardTitle>Invalid repository</CardTitle>
               <CardDescription>
-                The repository id in the URL is not valid.
+                The repository id in the URL is not valid: "{rawRepoId}".
               </CardDescription>
             </CardHeader>
             <CardContent>
