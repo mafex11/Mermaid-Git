@@ -11,10 +11,14 @@ export const getLanguageFromPath = (value: string): SourceLanguage => {
   const ext = path.posix.extname(value).toLowerCase();
   switch (ext) {
     case ".ts":
+    case ".mts":
+    case ".cts":
       return "ts";
     case ".tsx":
       return "tsx";
     case ".js":
+    case ".mjs":
+    case ".cjs":
       return "js";
     case ".jsx":
       return "jsx";
@@ -38,7 +42,24 @@ const resolveFromCandidates = (
   }
   const normalized = candidates.map((candidate) => normalizePath(candidate));
   const match = normalized.find((candidate) => knownPaths.has(candidate));
-  return match ?? normalized[0] ?? null;
+  return match ?? null;
+};
+
+const resolveWithExtensions = (
+  base: string,
+  options: ResolveOptions,
+): string | null => {
+  const normalizedBase = normalizePath(base);
+  const hasExtension = Boolean(path.posix.extname(normalizedBase));
+  if (hasExtension) {
+    return resolveFromCandidates([normalizedBase], options.knownPaths);
+  }
+  const extensions = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
+  const candidates = extensions.flatMap((ext) => [
+    `${normalizedBase}${ext}`,
+    `${normalizedBase}/index${ext}`,
+  ]);
+  return resolveFromCandidates(candidates, options.knownPaths);
 };
 
 export const resolveTsModulePath = (
@@ -46,25 +67,47 @@ export const resolveTsModulePath = (
   moduleSpecifier: string,
   options: ResolveOptions = {},
 ): string | null => {
-  if (!moduleSpecifier.startsWith(".")) {
+  if (moduleSpecifier.startsWith(".")) {
+    const base = path.posix.join(
+      path.posix.dirname(normalizePath(fromPath)),
+      moduleSpecifier,
+    );
+    return resolveWithExtensions(base, options);
+  }
+
+  if (moduleSpecifier.startsWith("@/") || moduleSpecifier.startsWith("~/")) {
+    const trimmed = moduleSpecifier.slice(2);
+    const candidates = [
+      path.posix.join("src", trimmed),
+      trimmed,
+    ];
+    for (const candidate of candidates) {
+      const resolved = resolveWithExtensions(candidate, options);
+      if (resolved) {
+        return resolved;
+      }
+    }
     return null;
   }
 
-  const base = normalizePath(
-    path.posix.join(path.posix.dirname(normalizePath(fromPath)), moduleSpecifier),
-  );
-  const hasExtension = Boolean(path.posix.extname(moduleSpecifier));
-  if (hasExtension) {
-    return base;
+  if (moduleSpecifier.startsWith("src/")) {
+    return resolveWithExtensions(moduleSpecifier, options);
   }
 
-  const extensions = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"];
-  const candidates = extensions.flatMap((ext) => [
-    `${base}${ext}`,
-    `${base}/index${ext}`,
-  ]);
+  if (options.knownPaths) {
+    const candidates = [
+      path.posix.join("src", moduleSpecifier),
+      moduleSpecifier,
+    ];
+    for (const candidate of candidates) {
+      const resolved = resolveWithExtensions(candidate, options);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
 
-  return resolveFromCandidates(candidates, options.knownPaths);
+  return null;
 };
 
 export const resolvePythonModulePath = (

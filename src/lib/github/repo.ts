@@ -162,9 +162,7 @@ export const buildFullRepoSnapshot = async (
   const concurrency = options.concurrency ?? defaultConcurrency;
 
   const fileEntries = tree.filter((entry) => entry.type === "blob");
-  const knownPaths = fileEntries
-    .map((entry) => normalizePath(entry.path))
-    .filter(isSupportedFile);
+  const knownPaths = fileEntries.map((entry) => normalizePath(entry.path));
 
   const supportedEntries = fileEntries.filter((entry) => isSupportedFile(entry.path));
   const snapshots = await mapWithConcurrency(
@@ -223,8 +221,7 @@ export const buildDiffRepoSnapshot = async (
   const tree = await fetchRepoTree(token, owner, repo, head);
   const knownPaths = tree
     .filter((entry) => entry.type === "blob")
-    .map((entry) => normalizePath(entry.path))
-    .filter(isSupportedFile);
+    .map((entry) => normalizePath(entry.path));
 
   const snapshots = await mapWithConcurrency(
     changedFiles,

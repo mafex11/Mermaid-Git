@@ -93,16 +93,22 @@ export const analyzeTypeScriptFile = ({
     ? "tsx"
     : normalizedPath.endsWith(".jsx")
       ? "jsx"
-      : normalizedPath.endsWith(".js")
+      : normalizedPath.endsWith(".mjs") || normalizedPath.endsWith(".cjs")
         ? "js"
-        : "ts";
+        : normalizedPath.endsWith(".js")
+          ? "js"
+          : "ts";
 
   const sourceFile = ts.createSourceFile(
     normalizedPath,
     content,
     ts.ScriptTarget.Latest,
     true,
-    language === "tsx" || language === "jsx" ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    language === "tsx" || language === "jsx"
+      ? ts.ScriptKind.TSX
+      : language === "js"
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS,
   );
 
   const nodes = new Map<string, GraphNodeInput>();
