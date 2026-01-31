@@ -29,8 +29,20 @@ export const getLanguageFromPath = (value: string): SourceLanguage => {
   }
 };
 
+export type PathAlias = {
+  pattern: string;
+  targets: string[];
+};
+
+export type TsconfigOptions = {
+  baseUrl?: string;
+  pathAliases?: PathAlias[];
+};
+
 type ResolveOptions = {
   knownPaths?: Set<string>;
+  baseUrl?: string;
+  pathAliases?: PathAlias[];
 };
 
 const resolveFromCandidates = (
@@ -54,7 +66,22 @@ const resolveWithExtensions = (
   if (hasExtension) {
     return resolveFromCandidates([normalizedBase], options.knownPaths);
   }
-  const extensions = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
+  const extensions = [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mts",
+    ".cts",
+    ".mjs",
+    ".cjs",
+    ".json",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".svg",
+  ];
   const candidates = extensions.flatMap((ext) => [
     `${normalizedBase}${ext}`,
     `${normalizedBase}/index${ext}`,
@@ -62,42 +89,95 @@ const resolveWithExtensions = (
   return resolveFromCandidates(candidates, options.knownPaths);
 };
 
+const resolveAlias = (
+  moduleSpecifier: string,
+  options: ResolveOptions,
+): string | null => {
+  if (!options.pathAliases || options.pathAliases.length === 0) {
+    return null;
+  }
+  for (const alias of options.pathAliases) {
+    const wildcardIndex = alias.pattern.indexOf("*");
+    if (wildcardIndex >= 0) {
+      const prefix = alias.pattern.slice(0, wildcardIndex);
+      const suffix = alias.pattern.slice(wildcardIndex + 1);
+      if (!moduleSpecifier.startsWith(prefix) || !moduleSpecifier.endsWith(suffix)) {
+        continue;
+      }
+      const match = moduleSpecifier.slice(prefix.length, moduleSpecifier.length - suffix.length);
+      for (const target of alias.targets) {
+        const replaced = target.replace("*", match);
+        const resolved = resolveWithExtensions(
+          options.baseUrl ? path.posix.join(options.baseUrl, replaced) : replaced,
+          options,
+        );
+        if (resolved) {
+          return resolved;
+        }
+      }
+      continue;
+    }
+    if (moduleSpecifier === alias.pattern) {
+      for (const target of alias.targets) {
+        const resolved = resolveWithExtensions(
+          options.baseUrl ? path.posix.join(options.baseUrl, target) : target,
+          options,
+        );
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+  }
+  return null;
+};
+
+export const buildResolveOptions = (
+  options?: TsconfigOptions,
+  knownPaths?: Set<string>,
+): ResolveOptions => ({
+  knownPaths,
+  baseUrl: options?.baseUrl,
+  pathAliases: options?.pathAliases,
+});
+
 export const resolveTsModulePath = (
   fromPath: string,
   moduleSpecifier: string,
   options: ResolveOptions = {},
 ): string | null => {
-  if (moduleSpecifier.startsWith(".")) {
+  const cleanSpecifier = moduleSpecifier.split(/[?#]/)[0]?.trim() ?? "";
+  if (!cleanSpecifier) {
+    return null;
+  }
+
+  const aliasResolved = resolveAlias(cleanSpecifier, options);
+  if (aliasResolved) {
+    return aliasResolved;
+  }
+
+  if (cleanSpecifier.startsWith(".")) {
     const base = path.posix.join(
       path.posix.dirname(normalizePath(fromPath)),
-      moduleSpecifier,
+      cleanSpecifier,
     );
     return resolveWithExtensions(base, options);
   }
 
-  if (moduleSpecifier.startsWith("@/") || moduleSpecifier.startsWith("~/")) {
-    const trimmed = moduleSpecifier.slice(2);
-    const candidates = [
-      path.posix.join("src", trimmed),
-      trimmed,
-    ];
-    for (const candidate of candidates) {
-      const resolved = resolveWithExtensions(candidate, options);
-      if (resolved) {
-        return resolved;
-      }
+  if (options.baseUrl) {
+    const resolved = resolveWithExtensions(
+      path.posix.join(options.baseUrl, cleanSpecifier),
+      options,
+    );
+    if (resolved) {
+      return resolved;
     }
-    return null;
-  }
-
-  if (moduleSpecifier.startsWith("src/")) {
-    return resolveWithExtensions(moduleSpecifier, options);
   }
 
   if (options.knownPaths) {
     const candidates = [
-      path.posix.join("src", moduleSpecifier),
-      moduleSpecifier,
+      path.posix.join("src", cleanSpecifier),
+      cleanSpecifier,
     ];
     for (const candidate of candidates) {
       const resolved = resolveWithExtensions(candidate, options);
@@ -138,5 +218,20 @@ export const resolvePythonModulePath = (
   );
 
   const candidates = [`${resolvedBase}.py`, `${resolvedBase}/__init__.py`];
-  return resolveFromCandidates(candidates, options.knownPaths);
+  const resolved = resolveFromCandidates(candidates, options.knownPaths);
+  if (resolved) {
+    return resolved;
+  }
+
+  if (options.knownPaths) {
+    const srcCandidates = candidates.map((candidate) =>
+      normalizePath(path.posix.join("src", candidate)),
+    );
+    const srcResolved = resolveFromCandidates(srcCandidates, options.knownPaths);
+    if (srcResolved) {
+      return srcResolved;
+    }
+  }
+
+  return null;
 };

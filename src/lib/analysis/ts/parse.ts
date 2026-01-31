@@ -2,7 +2,12 @@ import path from "path";
 import ts from "typescript";
 
 import { type AnalysisResult, type GraphEdgeInput, type GraphNodeInput } from "@/lib/analysis/types";
-import { normalizePath, resolveTsModulePath } from "@/lib/analysis/utils/path";
+import {
+  buildResolveOptions,
+  normalizePath,
+  resolveTsModulePath,
+  type TsconfigOptions,
+} from "@/lib/analysis/utils/path";
 import { createEdgeId, createNodeId } from "@/lib/graph/ids";
 import { type GraphEdgeKind, type GraphNodeKind } from "@/lib/graph/types";
 
@@ -11,6 +16,7 @@ type AnalyzeOptions = {
   filePath: string;
   content: string;
   knownPaths?: Set<string>;
+  tsconfig?: TsconfigOptions;
 };
 
 type FunctionContext = {
@@ -87,6 +93,7 @@ export const analyzeTypeScriptFile = ({
   filePath,
   content,
   knownPaths,
+  tsconfig,
 }: AnalyzeOptions): AnalysisResult => {
   const normalizedPath = normalizePath(filePath);
   const language = normalizedPath.endsWith(".tsx")
@@ -116,6 +123,7 @@ export const analyzeTypeScriptFile = ({
   const localFunctions = new Map<string, string>();
   const importMap = new Map<string, string>();
   const namespaceImports = new Map<string, string>();
+  const resolveOptions = buildResolveOptions(tsconfig, knownPaths);
 
   const fileNode = createFileNode(repoId, normalizedPath, language);
   nodes.set(fileNode.nodeId, fileNode);
@@ -151,7 +159,7 @@ export const analyzeTypeScriptFile = ({
     const resolvedPath = resolveTsModulePath(
       normalizedPath,
       node.moduleSpecifier.text,
-      { knownPaths },
+      resolveOptions,
     );
     if (!resolvedPath) {
       return;
@@ -175,6 +183,68 @@ export const analyzeTypeScriptFile = ({
         });
       }
     }
+  };
+
+  const registerExport = (node: ts.ExportDeclaration) => {
+    if (!node.moduleSpecifier || !ts.isStringLiteral(node.moduleSpecifier)) {
+      return;
+    }
+    const resolvedPath = resolveTsModulePath(
+      normalizedPath,
+      node.moduleSpecifier.text,
+      resolveOptions,
+    );
+    if (!resolvedPath) {
+      return;
+    }
+    const targetFile = ensureFileNode(resolvedPath);
+    addEdge(edges, repoId, "imports", fileNode.nodeId, targetFile.nodeId);
+  };
+
+  const registerImportEquals = (node: ts.ImportEqualsDeclaration) => {
+    const moduleRef = node.moduleReference;
+    if (!ts.isExternalModuleReference(moduleRef)) {
+      return;
+    }
+    const expression = moduleRef.expression;
+    if (!expression || !ts.isStringLiteral(expression)) {
+      return;
+    }
+    const resolvedPath = resolveTsModulePath(
+      normalizedPath,
+      expression.text,
+      resolveOptions,
+    );
+    if (!resolvedPath) {
+      return;
+    }
+    const targetFile = ensureFileNode(resolvedPath);
+    addEdge(edges, repoId, "imports", fileNode.nodeId, targetFile.nodeId);
+    addImport(node.name.text, resolvedPath);
+  };
+
+  const registerDynamicImport = (node: ts.CallExpression) => {
+    const expression = node.expression;
+    const isImportCall =
+      expression.kind === ts.SyntaxKind.ImportKeyword ||
+      (ts.isIdentifier(expression) && expression.text === "require");
+    if (!isImportCall) {
+      return;
+    }
+    const arg = node.arguments[0];
+    if (!arg || !ts.isStringLiteral(arg)) {
+      return;
+    }
+    const resolvedPath = resolveTsModulePath(
+      normalizedPath,
+      arg.text,
+      resolveOptions,
+    );
+    if (!resolvedPath) {
+      return;
+    }
+    const targetFile = ensureFileNode(resolvedPath);
+    addEdge(edges, repoId, "imports", fileNode.nodeId, targetFile.nodeId);
   };
 
   const handleVariableFunction = (node: ts.VariableDeclaration) => {
@@ -209,6 +279,14 @@ export const analyzeTypeScriptFile = ({
   const visit = (node: ts.Node) => {
     if (ts.isImportDeclaration(node)) {
       registerImports(node);
+      return;
+    }
+    if (ts.isExportDeclaration(node)) {
+      registerExport(node);
+      return;
+    }
+    if (ts.isImportEqualsDeclaration(node)) {
+      registerImportEquals(node);
       return;
     }
 
@@ -277,6 +355,7 @@ export const analyzeTypeScriptFile = ({
     }
 
     if (ts.isCallExpression(node)) {
+      registerDynamicImport(node);
       const current = functionStack[functionStack.length - 1];
       if (!current) {
         ts.forEachChild(node, visit);

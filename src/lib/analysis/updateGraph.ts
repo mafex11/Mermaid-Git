@@ -1,6 +1,7 @@
 import { analyzePythonFile } from "@/lib/analysis/python/parse";
 import { analyzeTypeScriptFile } from "@/lib/analysis/ts/parse";
 import { type AnalysisResult, type FileSnapshot, type GraphEdgeInput, type GraphNodeInput } from "@/lib/analysis/types";
+import { extractTsconfigOptions } from "@/lib/analysis/utils/tsconfig";
 import { getLanguageFromPath, normalizePath } from "@/lib/analysis/utils/path";
 import { createRunId } from "@/lib/graph/ids";
 import {
@@ -47,6 +48,7 @@ export const updateGraphForFiles = async (
   const normalizedKnownPaths = input.knownPaths
     ? new Set(input.knownPaths.map((item) => normalizePath(item)))
     : undefined;
+  const tsconfigOptions = extractTsconfigOptions(input.files);
 
   const runId = createRunId(input.repo.repoId, input.commitSha);
   const startedAt = new Date();
@@ -120,6 +122,7 @@ export const updateGraphForFiles = async (
             filePath: normalizedPath,
             content: file.content,
             knownPaths: normalizedKnownPaths,
+            tsconfig: tsconfigOptions,
           }),
         );
       }
