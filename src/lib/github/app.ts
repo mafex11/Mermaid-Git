@@ -16,8 +16,13 @@ const getAppId = (): number => {
   return appId;
 };
 
-const getPrivateKey = (): string =>
-  requireEnv("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n");
+const getPrivateKey = (): string => {
+  const raw = requireEnv("GITHUB_APP_PRIVATE_KEY").trim();
+  const decoded = raw.includes("BEGIN")
+    ? raw
+    : Buffer.from(raw, "base64").toString("utf8");
+  return decoded.replace(/\\n/g, "\n");
+};
 
 const toBase64Url = (value: string | Buffer): string =>
   Buffer.from(value)
