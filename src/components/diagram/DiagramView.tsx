@@ -56,6 +56,13 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
       <Alert variant="destructive">
         <AlertTitle>Unable to load diagram</AlertTitle>
         <AlertDescription>{data.error}</AlertDescription>
+        {data.error === "Unauthorized" ? (
+          <div className="mt-3">
+            <Button asChild variant="outline">
+              <Link href="/sign-in">Go to sign in</Link>
+            </Button>
+          </div>
+        ) : null}
       </Alert>
     );
   }
@@ -95,6 +102,13 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
     <Alert variant="destructive">
       <AlertTitle>Unable to load build status</AlertTitle>
       <AlertDescription>{buildStatus.error}</AlertDescription>
+      {buildStatus.error === "Unauthorized" ? (
+        <div className="mt-3">
+          <Button asChild variant="outline">
+            <Link href="/sign-in">Go to sign in</Link>
+          </Button>
+        </div>
+      ) : null}
     </Alert>
   ) : null;
 
