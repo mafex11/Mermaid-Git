@@ -149,9 +149,11 @@ export const listDiagramSummaries = async (): Promise<DiagramSummariesResponse> 
     listRepoDiagramSummaries(repoIds),
     listLatestAnalysisRuns(repoIds),
   ]);
+  const summariesByRepoId = new Map(summaries.map((summary) => [summary.repoId, summary]));
   const runsByRepoId = new Map(latestRuns.map((run) => [run.repoId, run]));
-  const normalized = summaries.map((summary) => {
-    const run = runsByRepoId.get(summary.repoId);
+  const normalized = repoIds.map((repoId) => {
+    const summary = summariesByRepoId.get(repoId);
+    const run = runsByRepoId.get(repoId);
     const totalFiles = run?.totalFiles ?? 0;
     const processedFiles = run?.processedFiles ?? 0;
     const progress =
@@ -163,17 +165,17 @@ export const listDiagramSummaries = async (): Promise<DiagramSummariesResponse> 
           }
         : undefined;
     const buildStatus: DiagramBuildStatus =
-      summary.buildStatus ?? run?.status ?? "idle";
+      summary?.buildStatus ?? run?.status ?? "idle";
     return {
-      repoId: summary.repoId,
-      diagramUpdatedAt: summary.diagramUpdatedAt?.toISOString(),
-      diagramNodeCount: summary.diagramNodeCount,
-      diagramEdgeCount: summary.diagramEdgeCount,
-      diagramTruncated: summary.diagramTruncated,
+      repoId,
+      diagramUpdatedAt: summary?.diagramUpdatedAt?.toISOString(),
+      diagramNodeCount: summary?.diagramNodeCount,
+      diagramEdgeCount: summary?.diagramEdgeCount,
+      diagramTruncated: summary?.diagramTruncated,
       buildStatus,
       buildUpdatedAt:
-        summary.buildUpdatedAt?.toISOString() ?? run?.updatedAt?.toISOString(),
-      buildError: summary.buildError ?? run?.error,
+        summary?.buildUpdatedAt?.toISOString() ?? run?.updatedAt?.toISOString(),
+      buildError: summary?.buildError ?? run?.error,
       progress,
     };
   });
