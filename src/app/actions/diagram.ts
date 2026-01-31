@@ -4,7 +4,13 @@ import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import { inngest } from "@/inngest/client";
-import { getRepoDiagram, listRepoDiagramSummaries } from "@/lib/graph/store";
+import {
+  getLatestAnalysisRun,
+  getRepoBuildStatus,
+  getRepoDiagram,
+  listRepoDiagramSummaries,
+  setRepoBuildStatus,
+} from "@/lib/graph/store";
 
 import { type RepoSummary, listInstalledRepos } from "./repos";
 
@@ -34,6 +40,27 @@ export type DiagramResponse =
         edgeCount?: number;
         truncated?: boolean;
       } | null;
+    }
+  | { ok: false; error: string };
+
+export type DiagramBuildStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "idle";
+
+export type BuildStatusResponse =
+  | {
+      ok: true;
+      status: DiagramBuildStatus;
+      updatedAt?: string;
+      error?: string;
+      progress?: {
+        processedFiles: number;
+        totalFiles: number;
+        percent: number;
+      };
     }
   | { ok: false; error: string };
 
@@ -70,6 +97,11 @@ export const startDiagramBuild = async (repoId: number): Promise<DiagramBuildRes
   if (!repoResult.ok) {
     return { ok: false, error: repoResult.error };
   }
+
+  await setRepoBuildStatus({
+    repoId,
+    status: "queued",
+  });
 
   await inngest.send({
     name: "graph/update.requested",
@@ -141,5 +173,49 @@ export const getDiagramForRepo = async (repoId: number): Promise<DiagramResponse
       edgeCount: diagram.diagramEdgeCount,
       truncated: diagram.diagramTruncated,
     },
+  };
+};
+
+export const getDiagramBuildStatus = async (
+  repoId: number,
+): Promise<BuildStatusResponse> => {
+  const session = await requireSession();
+  if (!session) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const repoResult = await ensureRepoAccess(repoId);
+  if (!repoResult.ok) {
+    return { ok: false, error: repoResult.error };
+  }
+
+  const [buildStatus, latestRun] = await Promise.all([
+    getRepoBuildStatus(repoId),
+    getLatestAnalysisRun(repoId),
+  ]);
+
+  const status =
+    buildStatus?.buildStatus ?? latestRun?.status ?? "idle";
+  const errorMessage = buildStatus?.buildError ?? latestRun?.error;
+  const updatedAt =
+    buildStatus?.buildUpdatedAt?.toISOString() ?? latestRun?.updatedAt?.toISOString();
+
+  const totalFiles = latestRun?.totalFiles ?? 0;
+  const processedFiles = latestRun?.processedFiles ?? 0;
+  const progress =
+    totalFiles > 0
+      ? {
+          processedFiles,
+          totalFiles,
+          percent: Math.min(100, Math.round((processedFiles / totalFiles) * 100)),
+        }
+      : undefined;
+
+  return {
+    ok: true,
+    status,
+    updatedAt,
+    error: errorMessage,
+    progress,
   };
 };

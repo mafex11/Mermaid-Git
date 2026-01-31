@@ -10,9 +10,14 @@ export type RepoRecord = {
   diagramNodeCount?: number;
   diagramEdgeCount?: number;
   diagramTruncated?: boolean;
+  buildStatus?: BuildStatus;
+  buildError?: string;
+  buildUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type BuildStatus = "queued" | "running" | "succeeded" | "failed";
 
 export type SourceLanguage = "ts" | "tsx" | "js" | "jsx" | "py" | "unknown";
 
@@ -51,6 +56,8 @@ export type AnalysisRun = {
   commitSha: string;
   status: AnalysisRunStatus;
   error?: string;
+  totalFiles?: number;
+  processedFiles?: number;
   startedAt?: Date;
   finishedAt?: Date;
   createdAt: Date;

@@ -4,6 +4,7 @@ import { getMongoDb } from "@/lib/db/mongo";
 
 import {
   type AnalysisRun,
+  type BuildStatus,
   type GraphEdge,
   type GraphNode,
   type GraphSlice,
@@ -96,6 +97,9 @@ type RepoDiagramRecord = {
   diagramNodeCount?: number;
   diagramEdgeCount?: number;
   diagramTruncated?: boolean;
+  buildStatus?: BuildStatus;
+  buildError?: string;
+  buildUpdatedAt?: Date;
 };
 
 export const getRepoDiagram = async (
@@ -112,6 +116,9 @@ export const getRepoDiagram = async (
         diagramNodeCount: 1,
         diagramEdgeCount: 1,
         diagramTruncated: 1,
+        buildStatus: 1,
+        buildError: 1,
+        buildUpdatedAt: 1,
       },
     },
   );
@@ -134,10 +141,74 @@ export const listRepoDiagramSummaries = async (
           diagramNodeCount: 1,
           diagramEdgeCount: 1,
           diagramTruncated: 1,
+          buildStatus: 1,
+          buildUpdatedAt: 1,
         },
       },
     )
     .toArray();
+};
+
+type RepoBuildStatusUpdate = {
+  repoId: number;
+  status: BuildStatus;
+  error?: string;
+};
+
+export const setRepoBuildStatus = async (
+  update: RepoBuildStatusUpdate,
+): Promise<void> => {
+  const { repos } = getGraphCollections();
+  const now = new Date();
+  await repos.updateOne(
+    { repoId: update.repoId },
+    {
+      $set: {
+        buildStatus: update.status,
+        buildError: update.error,
+        buildUpdatedAt: now,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  );
+};
+
+type RepoBuildStatusRecord = {
+  repoId: number;
+  buildStatus?: BuildStatus;
+  buildError?: string;
+  buildUpdatedAt?: Date;
+};
+
+export const getRepoBuildStatus = async (
+  repoId: number,
+): Promise<RepoBuildStatusRecord | null> => {
+  const { repos } = getGraphCollections();
+  return repos.findOne(
+    { repoId },
+    {
+      projection: {
+        repoId: 1,
+        buildStatus: 1,
+        buildError: 1,
+        buildUpdatedAt: 1,
+      },
+    },
+  );
+};
+
+export const getLatestAnalysisRun = async (
+  repoId: number,
+): Promise<AnalysisRun | null> => {
+  const { runs } = getGraphCollections();
+  const result = await runs
+    .find({ repoId })
+    .sort({ updatedAt: -1 })
+    .limit(1)
+    .toArray();
+  return result[0] ?? null;
 };
 
 type GraphNodeInput = Omit<GraphNode, "createdAt" | "updatedAt">;

@@ -5,10 +5,12 @@ import useSWRMutation from "swr/mutation";
 import { useSWRConfig } from "swr";
 
 import {
+  getDiagramBuildStatus,
   getDiagramForRepo,
   listDiagramSummaries,
   startDiagramBuild,
   type DiagramBuildResponse,
+  type BuildStatusResponse,
   type DiagramResponse,
   type DiagramSummariesResponse,
 } from "@/app/actions/diagram";
@@ -18,6 +20,9 @@ const fetchDiagramSummaries = async (): Promise<DiagramSummariesResponse> =>
 
 const fetchDiagram = async (repoId: number): Promise<DiagramResponse> =>
   getDiagramForRepo(repoId);
+
+const fetchBuildStatus = async (repoId: number): Promise<BuildStatusResponse> =>
+  getDiagramBuildStatus(repoId);
 
 export const useDiagramSummaries = () =>
   useSWR<DiagramSummariesResponse>("diagram-summaries", fetchDiagramSummaries, {
@@ -57,3 +62,21 @@ export const useDiagramBuild = () => {
     trigger,
   };
 };
+
+export const useDiagramBuildStatus = (repoId: number | null) =>
+  useSWR<BuildStatusResponse>(
+    repoId ? ["diagram-build-status", repoId] : null,
+    () => {
+      if (repoId === null) {
+        return Promise.resolve({ ok: false, error: "Missing repo id" });
+      }
+      return fetchBuildStatus(repoId);
+    },
+    {
+      refreshInterval: (latest) =>
+        latest && latest.ok && (latest.status === "queued" || latest.status === "running")
+          ? 3000
+          : 0,
+      revalidateOnFocus: false,
+    },
+  );

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDiagram, useDiagramBuild } from "@/hooks/useDiagram";
+import { useDiagram, useDiagramBuild, useDiagramBuildStatus } from "@/hooks/useDiagram";
 
 import { MermaidRenderer } from "./MermaidRenderer";
 
@@ -17,6 +17,7 @@ type DiagramViewProps = {
 export const DiagramView = ({ repoId }: DiagramViewProps) => {
   const { data, isLoading } = useDiagram(repoId);
   const { trigger, isMutating } = useDiagramBuild();
+  const { data: buildStatus } = useDiagramBuildStatus(repoId);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [buildNotice, setBuildNotice] = useState<string | null>(null);
 
@@ -58,9 +59,45 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
     );
   }
 
+  const buildStatusPanel = buildStatus?.ok ? (
+    <Card>
+      <CardHeader>
+        <CardTitle>Build status</CardTitle>
+        <CardDescription>
+          {buildStatus.status === "idle" ? "No build running." : buildStatus.status}
+        </CardDescription>
+        {buildStatus.updatedAt ? (
+          <CardDescription>
+            Updated {new Date(buildStatus.updatedAt).toLocaleString()}
+          </CardDescription>
+        ) : null}
+        {buildStatus.progress ? (
+          <CardDescription>
+            Progress {buildStatus.progress.percent}% ({buildStatus.progress.processedFiles}/
+            {buildStatus.progress.totalFiles} files)
+          </CardDescription>
+        ) : null}
+      </CardHeader>
+      {buildStatus.error ? (
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Build error</AlertTitle>
+            <AlertDescription>{buildStatus.error}</AlertDescription>
+          </Alert>
+        </CardContent>
+      ) : null}
+    </Card>
+  ) : buildStatus ? (
+    <Alert variant="destructive">
+      <AlertTitle>Unable to load build status</AlertTitle>
+      <AlertDescription>{buildStatus.error}</AlertDescription>
+    </Alert>
+  ) : null;
+
   if (!data.diagram) {
     return (
       <div className="space-y-4">
+        {buildStatusPanel}
         <Alert>
           <AlertTitle>No diagram available</AlertTitle>
           <AlertDescription>
@@ -93,6 +130,7 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
 
   return (
     <div className="space-y-4">
+      {buildStatusPanel}
       {buildError ? (
         <Alert variant="destructive">
           <AlertTitle>Build failed</AlertTitle>

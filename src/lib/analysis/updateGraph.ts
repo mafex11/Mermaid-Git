@@ -50,12 +50,17 @@ export const updateGraphForFiles = async (
 
   const runId = createRunId(input.repo.repoId, input.commitSha);
   const startedAt = new Date();
+  const totalFiles = input.files.length;
+  let processedFiles = 0;
+  const progressInterval = 50;
   await upsertAnalysisRun({
     runId,
     repoId: input.repo.repoId,
     commitSha: input.commitSha,
     status: "running",
     startedAt,
+    totalFiles,
+    processedFiles,
   });
 
   try {
@@ -92,6 +97,18 @@ export const updateGraphForFiles = async (
             knownPaths: normalizedKnownPaths,
           }),
         );
+        processedFiles += 1;
+        if (processedFiles % progressInterval === 0 || processedFiles === totalFiles) {
+          await upsertAnalysisRun({
+            runId,
+            repoId: input.repo.repoId,
+            commitSha: input.commitSha,
+            status: "running",
+            startedAt,
+            totalFiles,
+            processedFiles,
+          });
+        }
         continue;
       }
       if (language === "ts" || language === "tsx" || language === "js" || language === "jsx") {
@@ -106,6 +123,18 @@ export const updateGraphForFiles = async (
           }),
         );
       }
+      processedFiles += 1;
+      if (processedFiles % progressInterval === 0 || processedFiles === totalFiles) {
+        await upsertAnalysisRun({
+          runId,
+          repoId: input.repo.repoId,
+          commitSha: input.commitSha,
+          status: "running",
+          startedAt,
+          totalFiles,
+          processedFiles,
+        });
+      }
     }
 
     await upsertGraphNodes(Array.from(nodes.values()));
@@ -117,6 +146,8 @@ export const updateGraphForFiles = async (
       commitSha: input.commitSha,
       status: "succeeded",
       startedAt,
+      totalFiles,
+      processedFiles: totalFiles,
       finishedAt: new Date(),
     });
 
@@ -129,6 +160,8 @@ export const updateGraphForFiles = async (
       status: "failed",
       error: error instanceof Error ? error.message : "Unknown error",
       startedAt,
+      totalFiles,
+      processedFiles,
       finishedAt: new Date(),
     });
     throw error;
