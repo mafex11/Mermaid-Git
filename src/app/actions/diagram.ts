@@ -10,6 +10,8 @@ import {
   getRepoDiagram,
   listRepoDiagramSummaries,
   listLatestAnalysisRuns,
+  clearRepoDiagram,
+  deleteGraphForRepo,
   setRepoBuildStatus,
 } from "@/lib/graph/store";
 
@@ -107,6 +109,8 @@ export const startDiagramBuild = async (repoId: number): Promise<DiagramBuildRes
     return { ok: false, error: repoResult.error };
   }
 
+  await clearRepoDiagram(repoId);
+  await deleteGraphForRepo(repoId);
   await setRepoBuildStatus({
     repoId,
     status: "queued",

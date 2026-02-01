@@ -57,6 +57,14 @@ const decodeBase64 = (value: string): string =>
 const isSupportedFile = (filePath: string): boolean =>
   getLanguageFromPath(filePath) !== "unknown";
 
+const configFilePattern = /(^|\/)(tsconfig|jsconfig)(\..*)?\.json$/;
+
+const isConfigFile = (filePath: string): boolean =>
+  configFilePattern.test(filePath) || filePath.endsWith("/package.json") || filePath === "package.json";
+
+const shouldFetchFile = (filePath: string): boolean =>
+  isSupportedFile(filePath) || isConfigFile(filePath);
+
 const mapWithConcurrency = async <T, R>(
   items: T[],
   limit: number,
@@ -164,9 +172,9 @@ export const buildFullRepoSnapshot = async (
   const fileEntries = tree.filter((entry) => entry.type === "blob");
   const knownPaths = fileEntries.map((entry) => normalizePath(entry.path));
 
-  const supportedEntries = fileEntries.filter((entry) => isSupportedFile(entry.path));
+  const snapshotEntries = fileEntries.filter((entry) => shouldFetchFile(entry.path));
   const snapshots = await mapWithConcurrency(
-    supportedEntries,
+    snapshotEntries,
     concurrency,
     async (entry) => {
       try {
@@ -215,7 +223,7 @@ export const buildDiffRepoSnapshot = async (
     return [];
   });
   const changedFiles = compare.files.filter(
-    (file) => file.status !== "removed" && isSupportedFile(file.filename),
+    (file) => file.status !== "removed" && shouldFetchFile(file.filename),
   );
 
   const tree = await fetchRepoTree(token, owner, repo, head);
@@ -223,7 +231,7 @@ export const buildDiffRepoSnapshot = async (
     .filter((entry) => entry.type === "blob")
     .map((entry) => normalizePath(entry.path));
 
-  const snapshots = await mapWithConcurrency(
+  const changedSnapshots = await mapWithConcurrency(
     changedFiles,
     concurrency,
     async (file) => {
@@ -245,9 +253,37 @@ export const buildDiffRepoSnapshot = async (
     },
   );
 
+  const changedPaths = new Set(changedFiles.map((file) => normalizePath(file.filename)));
+  const configEntries = tree.filter(
+    (entry) => entry.type === "blob" && isConfigFile(entry.path),
+  );
+  const extraConfigEntries = configEntries.filter(
+    (entry) => !changedPaths.has(normalizePath(entry.path)),
+  );
+  const configSnapshots = await mapWithConcurrency(
+    extraConfigEntries,
+    concurrency,
+    async (entry) => {
+      try {
+        const blob = await fetchBlob(token, owner, repo, entry.sha);
+        if (blob.size > maxFileSize) {
+          return null;
+        }
+        if (blob.encoding !== "base64") {
+          return null;
+        }
+        return toFileSnapshot(entry.path, decodeBase64(blob.content));
+      } catch {
+        return null;
+      }
+    },
+  );
+
   return {
     commitSha: head,
-    files: snapshots.filter((item): item is FileSnapshot => Boolean(item)),
+    files: [...changedSnapshots, ...configSnapshots].filter(
+      (item): item is FileSnapshot => Boolean(item),
+    ),
     knownPaths,
     removedPaths,
   };

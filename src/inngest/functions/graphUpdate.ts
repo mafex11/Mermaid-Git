@@ -4,6 +4,7 @@ import { buildMermaidFromGraph } from "@/lib/graph/mermaid";
 import {
   ensureGraphIndexes,
   getGraphSlice,
+  deleteGraphForRepo,
   setRepoBuildStatus,
   upsertRepoDiagram,
 } from "@/lib/graph/store";
@@ -73,6 +74,7 @@ export const graphUpdate = inngest.createFunction(
           );
         }
       } else {
+        await deleteGraphForRepo(event.data.repository.id);
         snapshot = await buildFullRepoSnapshot(
           event.data.installationId,
           owner,

@@ -90,6 +90,26 @@ export const upsertRepoDiagram = async (
   );
 };
 
+export const clearRepoDiagram = async (repoId: number): Promise<void> => {
+  const { repos } = getGraphCollections();
+  const now = new Date();
+  await repos.updateOne(
+    { repoId },
+    {
+      $unset: {
+        diagramMermaid: "",
+        diagramUpdatedAt: "",
+        diagramNodeCount: "",
+        diagramEdgeCount: "",
+        diagramTruncated: "",
+      },
+      $set: { updatedAt: now },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  );
+};
+
 type RepoDiagramRecord = {
   repoId: number;
   diagramMermaid?: string;
@@ -309,6 +329,14 @@ export const deleteGraphNodesByPath = async (
   }
 
   await nodes.deleteMany({ repoId, path });
+};
+
+export const deleteGraphForRepo = async (repoId: number): Promise<void> => {
+  const { nodes, edges } = getGraphCollections();
+  await Promise.all([
+    edges.deleteMany({ repoId }),
+    nodes.deleteMany({ repoId }),
+  ]);
 };
 
 const escapeRegex = (value: string): string =>
