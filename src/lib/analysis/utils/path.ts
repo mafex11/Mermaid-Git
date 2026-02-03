@@ -151,11 +151,13 @@ export const resolveTsModulePath = (
     return null;
   }
 
+  // Try configured path aliases first
   const aliasResolved = resolveAlias(cleanSpecifier, options);
   if (aliasResolved) {
     return aliasResolved;
   }
 
+  // Handle relative imports
   if (cleanSpecifier.startsWith(".")) {
     const base = path.posix.join(
       path.posix.dirname(normalizePath(fromPath)),
@@ -164,6 +166,13 @@ export const resolveTsModulePath = (
     return resolveWithExtensions(base, options);
   }
 
+  // Handle common alias patterns as fallback (when no tsconfig paths configured)
+  const commonAliasResult = resolveCommonAliases(cleanSpecifier, options);
+  if (commonAliasResult) {
+    return commonAliasResult;
+  }
+
+  // Try baseUrl resolution
   if (options.baseUrl) {
     const resolved = resolveWithExtensions(
       path.posix.join(options.baseUrl, cleanSpecifier),
@@ -174,12 +183,43 @@ export const resolveTsModulePath = (
     }
   }
 
+  // Fallback: try common project structures
   if (options.knownPaths) {
-    const candidates = [
-      path.posix.join("src", cleanSpecifier),
-      cleanSpecifier,
-    ];
-    for (const candidate of candidates) {
+    const fallbackPrefixes = ["src", "lib", "app", ""];
+    for (const prefix of fallbackPrefixes) {
+      const candidate = prefix ? path.posix.join(prefix, cleanSpecifier) : cleanSpecifier;
+      const resolved = resolveWithExtensions(candidate, options);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  return null;
+};
+
+const resolveCommonAliases = (
+  specifier: string,
+  options: ResolveOptions,
+): string | null => {
+  // Common alias patterns used in projects
+  const commonAliases: Array<{ prefix: string; replacements: string[] }> = [
+    { prefix: "@/", replacements: ["src/", ""] },
+    { prefix: "~/", replacements: ["src/", ""] },
+    { prefix: "@components/", replacements: ["src/components/", "components/"] },
+    { prefix: "@lib/", replacements: ["src/lib/", "lib/"] },
+    { prefix: "@utils/", replacements: ["src/utils/", "utils/"] },
+    { prefix: "@hooks/", replacements: ["src/hooks/", "hooks/"] },
+    { prefix: "@app/", replacements: ["src/app/", "app/"] },
+  ];
+
+  for (const alias of commonAliases) {
+    if (!specifier.startsWith(alias.prefix)) {
+      continue;
+    }
+    const remainder = specifier.slice(alias.prefix.length);
+    for (const replacement of alias.replacements) {
+      const candidate = replacement + remainder;
       const resolved = resolveWithExtensions(candidate, options);
       if (resolved) {
         return resolved;
@@ -203,7 +243,9 @@ export const resolvePythonModulePath = (
     const match = moduleName.match(/^(\.+)(.*)$/);
     const dots = match?.[1] ?? "";
     modulePath = match?.[2] ?? "";
-    for (let i = 0; i < dots.length; i += 1) {
+    // In Python: 1 dot = current dir, 2 dots = parent, N dots = N-1 levels up
+    // So we go up (dots.length - 1) times
+    for (let i = 1; i < dots.length; i += 1) {
       baseDir = path.posix.dirname(baseDir);
     }
   } else {

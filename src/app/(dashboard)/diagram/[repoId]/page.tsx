@@ -18,8 +18,8 @@ export default function DiagramPage() {
   const repoId = Number.parseInt(rawRepoId, 10);
   if (!Number.isFinite(repoId)) {
     return (
-      <main className="flex min-h-screen justify-center bg-background px-6 py-16 text-foreground">
-        <div className="w-full max-w-3xl">
+      <main className="min-h-screen bg-zinc-950 px-6 py-16 text-foreground">
+        <div className="mx-auto w-full max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle>Invalid repository</CardTitle>
@@ -39,8 +39,8 @@ export default function DiagramPage() {
   }
 
   return (
-    <main className="flex min-h-screen justify-center bg-background px-6 py-16 text-foreground">
-      <div className="w-full max-w-5xl">
+    <main className="min-h-screen bg-zinc-950 px-6 py-16 text-foreground">
+      <div className="mx-auto w-full max-w-6xl">
         <DiagramView repoId={repoId} />
       </div>
     </main>

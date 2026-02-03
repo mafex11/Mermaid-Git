@@ -4,8 +4,15 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { type DiagramSummary } from "@/app/actions/diagram";
 import { useDiagramBuild, useDiagramSummaries } from "@/hooks/useDiagram";
@@ -71,18 +78,26 @@ export const ReposView = ({
   };
 
   return (
-    <div className="w-full max-w-4xl space-y-6">
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <Badge variant="secondary">Workspace</Badge>
+        <h1 className="text-3xl font-semibold tracking-tight">Repositories</h1>
+        <p className="text-muted-foreground">
+          Signed in as {userName}
+          {userEmail ? ` (${userEmail})` : ""}
+        </p>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Repositories</CardTitle>
+          <CardTitle>Repo actions</CardTitle>
           <CardDescription>
-            Signed in as {userName}
-            {userEmail ? ` (${userEmail})` : ""}
+            Select a repository to generate and view its graph.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-muted-foreground">
-            Select a repository to generate and view its graph.
+            Graph refreshes keep Mermaid exports current after each push.
           </span>
           <div className="flex flex-col gap-2 sm:flex-row">
             {appInstallUrl ? (
@@ -92,7 +107,11 @@ export const ReposView = ({
                 </Link>
               </Button>
             ) : null}
-            <Button variant="outline" onClick={handleSignOut} disabled={isSigningOut}>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+            >
               {isSigningOut ? "Signing out..." : "Sign out"}
             </Button>
           </div>
@@ -158,67 +177,71 @@ export const ReposView = ({
               ? summariesByRepoId.get(repo.id)
               : undefined;
             return (
-            <Card key={repo.id}>
-              <CardHeader>
-                <CardTitle>{repo.fullName}</CardTitle>
-                <CardDescription>
-                  {repo.private ? "Private" : "Public"} | Default{" "}
-                  {repo.defaultBranch}
-                </CardDescription>
-                {diagramSummaries?.ok ? (
-                  <CardDescription>
-                    {summary?.diagramUpdatedAt
-                      ? `Diagram updated ${new Date(summary.diagramUpdatedAt).toLocaleString()}`
-                      : "Diagram not built yet."}
-                  </CardDescription>
-                ) : null}
-                {diagramSummaries?.ok ? (
-                  <CardDescription>
-                    Build status: {summary?.buildStatus ?? "idle"}
-                  </CardDescription>
-                ) : null}
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex w-full flex-col gap-2">
-                  {summary?.progress ? (
-                    <div className="space-y-2">
-                      <Progress value={summary.progress.percent} />
-                      <span className="text-xs text-muted-foreground">
-                        Progress {summary.progress.percent}% (
-                        {summary.progress.processedFiles}/{summary.progress.totalFiles} files)
-                      </span>
-                    </div>
+              <Card key={repo.id}>
+                <CardHeader className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CardTitle>{repo.fullName}</CardTitle>
+                    <Badge variant="secondary">
+                      {repo.private ? "Private" : "Public"}
+                    </Badge>
+                  </div>
+                  <CardDescription>Default {repo.defaultBranch}</CardDescription>
+                  {diagramSummaries?.ok ? (
+                    <CardDescription>
+                      {summary?.diagramUpdatedAt
+                        ? `Diagram updated ${new Date(summary.diagramUpdatedAt).toLocaleString()}`
+                        : "Diagram not built yet."}
+                    </CardDescription>
                   ) : null}
-                  {summary?.buildStatus === "failed" && summary.buildError ? (
-                    <Alert variant="destructive">
-                      <AlertTitle>Build failed</AlertTitle>
-                      <AlertDescription>{summary.buildError}</AlertDescription>
-                    </Alert>
+                  {diagramSummaries?.ok ? (
+                    <CardDescription>
+                      Build status: {summary?.buildStatus ?? "idle"}
+                    </CardDescription>
                   ) : null}
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleBuild(repo.id)}
-                    disabled={isBuilding}
-                  >
-                    {isBuilding && activeBuildRepoId === repo.id
-                      ? "Building..."
-                      : "Build diagram"}
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href={`/diagram/${repo.id}`}>Open diagram</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">
-                      View on GitHub
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex w-full flex-col gap-2">
+                    {summary?.progress ? (
+                      <div className="space-y-2">
+                        <Progress value={summary.progress.percent} />
+                        <span className="text-xs text-muted-foreground">
+                          Progress {summary.progress.percent}% (
+                          {summary.progress.processedFiles}/
+                          {summary.progress.totalFiles} files)
+                        </span>
+                      </div>
+                    ) : null}
+                    {summary?.buildStatus === "failed" &&
+                    summary.buildError ? (
+                      <Alert variant="destructive">
+                        <AlertTitle>Build failed</AlertTitle>
+                        <AlertDescription>{summary.buildError}</AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleBuild(repo.id)}
+                      disabled={isBuilding}
+                    >
+                      {isBuilding && activeBuildRepoId === repo.id
+                        ? "Building..."
+                        : "Build diagram"}
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href={`/diagram/${repo.id}`}>Open diagram</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href={repo.htmlUrl} target="_blank" rel="noreferrer">
+                        View on GitHub
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : null}
     </div>

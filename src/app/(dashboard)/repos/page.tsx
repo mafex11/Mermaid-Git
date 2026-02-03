@@ -21,12 +21,14 @@ export default async function ReposPage() {
   }
 
   return (
-    <main className="flex min-h-screen justify-center bg-background px-6 py-16 text-foreground">
-      <ReposView
-        userName={session.user.name ?? session.user.email ?? "GitHub user"}
-        userEmail={session.user.email}
-        appInstallUrl={getAppInstallUrl()}
-      />
+    <main className="min-h-screen bg-zinc-950 px-6 py-16 text-foreground">
+      <div className="mx-auto w-full max-w-6xl">
+        <ReposView
+          userName={session.user.name ?? session.user.email ?? "GitHub user"}
+          userEmail={session.user.email}
+          appInstallUrl={getAppInstallUrl()}
+        />
+      </div>
     </main>
   );
 }

@@ -39,9 +39,10 @@ export const buildMermaidFromGraph = (
   const limitedNodes = sortedFileNodes.slice(0, maxNodes);
   const limitedNodeIds = new Set(limitedNodes.map((node) => node.nodeId));
 
-  const fileEdges = slice.edges.filter(
+  // Filter edges: must be "imports" type and both endpoints must be file nodes in our limited set
+  const importEdges = slice.edges.filter((edge) => edge.kind === "imports");
+  const fileEdges = importEdges.filter(
     (edge) =>
-      edge.kind === "imports" &&
       fileNodeMap.has(edge.fromNodeId) &&
       fileNodeMap.has(edge.toNodeId) &&
       limitedNodeIds.has(edge.fromNodeId) &&

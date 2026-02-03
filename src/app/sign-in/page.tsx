@@ -20,9 +20,21 @@ export default async function SignInPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-16 text-foreground">
-      <div className="w-full max-w-lg">
-        <SignInCard appInstallUrl={getAppInstallUrl()} />
+    <main className="min-h-screen bg-zinc-950 px-6 py-16 text-foreground">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Repo Graph</p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Sign in to map repositories
+          </h1>
+          <p className="text-muted-foreground">
+            Connect GitHub to sync graphs, track updates, and share Mermaid
+            exports.
+          </p>
+        </div>
+        <div className="max-w-xl">
+          <SignInCard appInstallUrl={getAppInstallUrl()} />
+        </div>
       </div>
     </main>
   );

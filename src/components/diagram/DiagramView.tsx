@@ -4,12 +4,20 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useDiagram, useDiagramBuild, useDiagramBuildStatus } from "@/hooks/useDiagram";
 
-import { MermaidRenderer } from "./MermaidRenderer";
+import { DiagramStyleControls } from "./DiagramStyleControls";
+import { defaultMermaidStyleOptions, MermaidRenderer } from "./MermaidRenderer";
 
 type DiagramViewProps = {
   repoId: number;
@@ -21,6 +29,7 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
   const { data: buildStatus } = useDiagramBuildStatus(repoId);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [buildNotice, setBuildNotice] = useState<string | null>(null);
+  const [styleOptions, setStyleOptions] = useState(defaultMermaidStyleOptions);
 
   const handleBuild = async () => {
     setBuildError(null);
@@ -37,13 +46,33 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
     }
   };
 
+  const header = (
+    <div className="space-y-3">
+      <Badge variant="secondary">Diagram</Badge>
+      <h1 className="text-3xl font-semibold tracking-tight">
+        Repository diagram
+      </h1>
+      <p className="text-muted-foreground">
+        Track dependencies, build status, and export ready Mermaid output.
+      </p>
+    </div>
+  );
+
+  const styleControls = (
+    <DiagramStyleControls options={styleOptions} onChange={setStyleOptions} />
+  );
+
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="py-6 text-sm text-muted-foreground">
-          Loading diagram...
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        {header}
+        {styleControls}
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            Loading diagram...
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -53,17 +82,21 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
 
   if (!data.ok) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Unable to load diagram</AlertTitle>
-        <AlertDescription>{data.error}</AlertDescription>
-        {data.error === "Unauthorized" ? (
-          <div className="mt-3">
-            <Button asChild variant="outline">
-              <Link href="/sign-in">Go to sign in</Link>
-            </Button>
-          </div>
-        ) : null}
-      </Alert>
+      <div className="space-y-6">
+        {header}
+        {styleControls}
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load diagram</AlertTitle>
+          <AlertDescription>{data.error}</AlertDescription>
+          {data.error === "Unauthorized" ? (
+            <div className="mt-3">
+              <Button asChild variant="outline">
+                <Link href="/sign-in">Go to sign in</Link>
+              </Button>
+            </div>
+          ) : null}
+        </Alert>
+      </div>
     );
   }
 
@@ -114,7 +147,9 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
 
   if (!data.diagram) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
+        {header}
+        {styleControls}
         {buildStatusPanel}
         <Alert>
           <AlertTitle>No diagram available</AlertTitle>
@@ -147,7 +182,9 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {header}
+      {styleControls}
       {buildStatusPanel}
       {buildError ? (
         <Alert variant="destructive">
@@ -171,7 +208,7 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
       ) : null}
       <Card>
         <CardHeader>
-          <CardTitle>Repository diagram</CardTitle>
+          <CardTitle>Graph output</CardTitle>
           <CardDescription>
             {data.diagram.updatedAt
               ? `Updated ${new Date(data.diagram.updatedAt).toLocaleString()}`
@@ -185,7 +222,7 @@ export const DiagramView = ({ repoId }: DiagramViewProps) => {
           ) : null}
         </CardHeader>
         <CardContent>
-          <MermaidRenderer chart={data.diagram.mermaid} />
+          <MermaidRenderer chart={data.diagram.mermaid} options={styleOptions} />
         </CardContent>
       </Card>
       <div className="flex flex-col gap-2 sm:flex-row">
